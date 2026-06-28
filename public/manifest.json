@@ -1,0 +1,11 @@
+{
+  "name": "Coach Sport IA",
+  "short_name": "Coach Sport IA",
+  "description": "Coach personnel IA — musculation, tennis, nutrition, récupération",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "fr",
+  "icons": []
+}
