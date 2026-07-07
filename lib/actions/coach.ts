@@ -28,7 +28,7 @@ async function buildUserContext(supabase: any, userId: string) {
     supabase.from("nutrition_targets").select("calories_kcal, protein_g, carbs_g, fat_g").eq("user_id", userId).order("effective_from", { ascending: false }).limit(1).single(),
     supabase.from("body_measurements").select("measured_at, weight_kg, body_fat_pct").eq("user_id", userId).order("measured_at", { ascending: false }).limit(1).single(),
     supabase.from("supplements").select("name, type, timing").eq("user_id", userId).eq("is_active", true),
-    supabase.from("workout_sessions").select("started_at, status, program_day:workout_program_days(name, workout_programs(name)), workout_session_exercises(exercises(name))").eq("user_id", userId).gte("started_at", `${weekAgo}T00:00:00`).order("started_at", { ascending: false }).limit(5),
+    supabase.from("workout_sessions").select("started_at, status, program_day:workout_program_days(name, workout_programs(name)), workout_session_exercises(exercises(name), workout_sets(set_index, weight_kg, reps, completed))").eq("user_id", userId).gte("started_at", `${weekAgo}T00:00:00`).order("started_at", { ascending: false }).limit(5),
     supabase.from("personal_records").select("value, achieved_at, exercises(name)").eq("user_id", userId).eq("record_type", "max_weight").order("achieved_at", { ascending: false }).limit(5),
     supabase.from("daily_checkins").select("sleep_quality, sleep_hours, energy, stress, soreness, fatigue").eq("user_id", userId).eq("checkin_date", today).single(),
     supabase.from("menu_plans").select("days").eq("user_id", userId).eq("is_active", true).order("generated_at", { ascending: false }).limit(1).single(),
@@ -110,9 +110,16 @@ SÉANCES RÉCENTES (7 derniers jours)
 ${recent_sessions?.length
   ? recent_sessions.map((s: any) => {
       const date = new Date(s.started_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-      const exos = s.workout_session_exercises?.slice(0, 3).map((e: any) => e.exercises?.name).filter(Boolean).join(", ");
       const programName = s.program_day?.workout_programs?.name ?? s.program_day?.name ?? "Séance libre";
-      return `- ${date} : ${programName} — ${s.status === "completed" ? "✓ terminée" : s.status}${exos ? ` (${exos}…)` : ""}`;
+      const exoDetails = (s.workout_session_exercises ?? []).map((e: any) => {
+        const name = e.exercises?.name ?? "?";
+        const sets = (e.workout_sets ?? []).filter((st: any) => st.completed);
+        const setsStr = sets.length > 0
+          ? sets.map((st: any) => `${st.reps}×${st.weight_kg}kg`).join(", ")
+          : "—";
+        return `  • ${name} : ${setsStr}`;
+      }).join("\n");
+      return `- ${date} : ${programName} — ${s.status === "completed" ? "✓ terminée" : s.status}\n${exoDetails}`;
     }).join("\n")
   : "Aucune séance cette semaine."}
 
