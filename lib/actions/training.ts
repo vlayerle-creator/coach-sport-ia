@@ -130,49 +130,7 @@ export async function startSession(program_day_id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Check for existing in_progress session for this specific program day
-  const { data: existing } = await supabase
-    .from("workout_sessions")
-    .select("id, workout_session_exercises(id)")
-    .eq("user_id", user.id)
-    .eq("program_day_id", program_day_id)
-    .eq("status", "in_progress")
-    .single();
-
-  if (existing) {
-    // Sync exercises in case the program was edited since the session was created
-    const { data: programExercises } = await supabase
-      .from("workout_program_exercises")
-      .select("id, exercise_id, order_index")
-      .eq("program_day_id", program_day_id)
-      .order("order_index");
-
-    const sessionExerciseIds = (existing.workout_session_exercises ?? []).map((se: any) => se.id);
-    const hasNoSets = sessionExerciseIds.length === 0;
-    const { data: hasSets } = hasNoSets ? { data: null } : await supabase
-      .from("workout_sets")
-      .select("id")
-      .in("session_exercise_id", sessionExerciseIds)
-      .limit(1)
-      .single();
-
-    if (!hasSets && programExercises && programExercises.length > 0) {
-      // No sets logged yet — resync exercises with current program
-      await supabase.from("workout_session_exercises").delete().eq("session_id", existing.id);
-      await supabase.from("workout_session_exercises").insert(
-        programExercises.map((pe) => ({
-          session_id: existing.id,
-          exercise_id: pe.exercise_id,
-          order_index: pe.order_index,
-          replaced_program_exercise_id: pe.id,
-        }))
-      );
-    }
-
-    redirect(`/training/sessions/${existing.id}`);
-  }
-
-  // Also mark any other in_progress sessions as abandoned
+  // Mark any existing in_progress sessions as completed (abandoned)
   await supabase
     .from("workout_sessions")
     .update({ status: "completed" })
